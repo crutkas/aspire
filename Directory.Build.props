@@ -68,6 +68,16 @@
     </PropertyGroup>
   </Target>
 
+  <!--
+    Hard CI guard: fail the build if AspireFastInnerLoop is set in a CI context.
+    Prevents shipping bits without analyzers, code-style enforcement, or XML docs.
+  -->
+  <Target Name="_AspireFastInnerLoopCIGuard"
+          BeforeTargets="BeforeBuild"
+          Condition=" '$(AspireFastInnerLoop)' == 'true' and '$(ContinuousIntegrationBuild)' == 'true' ">
+    <Error Code="ASPIRE001" Text="AspireFastInnerLoop must not be set in CI builds (ContinuousIntegrationBuild=true). It disables analyzers, code-style enforcement, and XML doc generation, which CI must enforce. Unset the env var (PowerShell: Remove-Item Env:AspireFastInnerLoop; cmd: set AspireFastInnerLoop=; bash: unset AspireFastInnerLoop) or remove /p:AspireFastInnerLoop=true." />
+  </Target>
+
   <!-- OS/Architecture properties for local development resources -->
   <PropertyGroup>
     <BuildOs Condition="$([MSBuild]::IsOsPlatform('Linux'))">linux</BuildOs>
