@@ -43,6 +43,31 @@
     <NoWarn>$(NoWarn);xUnit1051;NU1510;ASPIREATS001</NoWarn>
   </PropertyGroup>
 
+  <!--
+    Opt-in fast inner-loop switch. Set $(AspireFastInnerLoop)=true (e.g. via
+    `dotnet build /p:AspireFastInnerLoop=true` or `set AspireFastInnerLoop=true`)
+    to disable analyzers, code-style enforcement, and XML doc generation for
+    faster local builds. Default behavior (off) is unchanged. CI/release builds
+    must NOT set this flag - see docs/tips-and-known-issues.md.
+  -->
+  <PropertyGroup Condition=" '$(AspireFastInnerLoop)' == 'true' ">
+    <RunAnalyzers>false</RunAnalyzers>
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CS1591: Missing XML comment for publicly visible type or member. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <Target Name="_AspireFastInnerLoopWarning"
+          BeforeTargets="BeforeBuild"
+          Condition=" '$(AspireFastInnerLoop)' == 'true' and '$(_AspireFastInnerLoopWarned)' != 'true' ">
+    <Message Importance="high" Text="AspireFastInnerLoop is ON: analyzers, EnforceCodeStyleInBuild, and GenerateDocumentationFile are disabled. Do not use for CI or release builds." />
+    <PropertyGroup>
+      <_AspireFastInnerLoopWarned>true</_AspireFastInnerLoopWarned>
+    </PropertyGroup>
+  </Target>
+
   <!-- OS/Architecture properties for local development resources -->
   <PropertyGroup>
     <BuildOs Condition="$([MSBuild]::IsOsPlatform('Linux'))">linux</BuildOs>
