@@ -58,8 +58,9 @@ Measured cold wall:
 | `Aspire-Core.slnf` | 96.52 s | M05 |
 | `Aspire-FastDev.slnf` | 39.26 s | M07 |
 
-`Aspire-FastDev.slnf` lands via PR P1. Until that PR merges, `Aspire-Core.slnf`
-is the next-best filter (still 2.5x faster than full).
+`Aspire-Core.slnf` is the recommended in-repo filter today (still 2.5x
+faster than the full `Aspire.slnx`). If `Aspire-FastDev.slnf` is present
+in the repo root, prefer it for the 9-project inner-loop slice.
 
 Run the full `Aspire.slnx` (or `build.cmd`) before pushing a PR so analyzers
 and the broader graph still validate your change.
@@ -75,7 +76,11 @@ the four compiler processes.
 > Trade-off: this excludes your source tree and toolchain from real-time AV.
 > Only do this on a developer machine where you accept that trade-off.
 
-Adjust the paths to match your checkout. Example for `C:\Users\<you>\source\aspire`:
+Adjust the paths to match your checkout. Example for `C:\Users\<you>\source\aspire`.
+Note: the repo-root exclusion below already covers every `obj`/`bin` under
+it, and `Add-MpPreference -ExclusionPath` does not support `**` wildcards
+(glob-style entries silently no-op or match a literal `**` directory), so
+nested glob entries are unnecessary.
 
 ```powershell
 # Repo + per-user package/SDK caches
@@ -83,10 +88,6 @@ Add-MpPreference -ExclusionPath "$env:USERPROFILE\source\aspire"
 Add-MpPreference -ExclusionPath "$env:USERPROFILE\.nuget\packages"
 Add-MpPreference -ExclusionPath "$env:USERPROFILE\source\aspire\.dotnet"
 Add-MpPreference -ExclusionPath "$env:USERPROFILE\source\aspire\artifacts"
-
-# Common output folders (covers any obj/bin under the repo)
-Add-MpPreference -ExclusionPath "$env:USERPROFILE\source\aspire\**\obj"
-Add-MpPreference -ExclusionPath "$env:USERPROFILE\source\aspire\**\bin"
 
 # Build/compiler processes
 Add-MpPreference -ExclusionProcess "dotnet.exe"
@@ -206,32 +207,37 @@ per `dotnet restore`** even when no feed needs auth.
 ### Symptom
 
 `dotnet restore` (or any restore-issuing command) hangs for ~45-50 s with
-no log output, then fails or proceeds. Verbose restore output may include
-something like:
+no log output, then fails or proceeds. Verbose restore (`-v:n`) shows a
+~45-50 s gap before any feed is queried; on `-v:diag` you may see a
+plugin timeout line such as:
 
 ```
-error MSB1009: ... failed within 46.859 seconds with exit code -1
+Plugin '...CredentialProvider.Microsoft...' failed within 46.859 seconds with exit code -1
 ```
 
 ### Fix
 
-Either uninstall the misconfigured plugin:
+Start by unsetting the env-var trio that drives plugin discovery -- the
+offending binary often lives outside `%USERPROFILE%\.nuget\plugins`
+(for example under `C:\.tools\.nuget\plugins\...`) and is only loaded
+because one of these vars points at it:
+
+```powershell
+Remove-Item Env:NUGET_PLUGIN_PATHS         -ErrorAction SilentlyContinue
+Remove-Item Env:NUGET_NETCORE_PLUGIN_PATHS -ErrorAction SilentlyContinue
+Remove-Item Env:NUGET_NETFX_PLUGIN_PATHS   -ErrorAction SilentlyContinue
+Get-ChildItem Env:NUGET_CREDENTIALPROVIDER_* -ErrorAction SilentlyContinue | Remove-Item
+```
+
+As a secondary cleanup -- only if the plugin actually lives in the
+per-user NuGet plugins folder on your host -- uninstall it:
 
 ```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\.nuget\plugins\netcore\CredentialProvider.Microsoft"
 ```
 
-Or unset the offending env vars per shell:
-
-```powershell
-Remove-Item Env:NUGET_NETCORE_PLUGIN_PATHS  -ErrorAction SilentlyContinue
-Remove-Item Env:NUGET_NETFX_PLUGIN_PATHS    -ErrorAction SilentlyContinue
-Get-ChildItem Env:NUGET_CREDENTIALPROVIDER_* -ErrorAction SilentlyContinue | Remove-Item
-$env:NUGET_PLUGIN_PATHS = ""
-```
-
 If you actively use Azure Artifacts on another repo, prefer the per-shell
-unset over the uninstall.
+env-var unset over the uninstall.
 
 ## Recommendation -> measurement reference table
 
@@ -242,7 +248,7 @@ unset over the uninstall.
 | 3 | Dev Drive setup (full) | M23 (130.52 s, half-configured) | M05a + M05 (107.79 s) NTFS |
 | 4 | `DOTNET_gcServer=1` (+ `TieredPGO=1`) | M20 (26.78 s warm) | M17 (28.15 s warm) baseline |
 | 5 | `/m:4` over `/m:32` on small filters | M18 (19.91 s warm) | M19 (34.82 s warm) |
-| 5 | Static-graph restore (lands via P2) | M15a (17.55 s warm restore) | M02 (32.97 s warm restore) |
+| 5 | Static-graph restore (`-p:RestoreUseStaticGraphEvaluation=true`) | M15a (17.55 s warm restore) | M02 (32.97 s warm restore) |
 | 6 | Unset Azure Artifacts credential provider | observed ~47 s dead time per restore | n/a (machine bug) |
 
 Additional context for related items deferred from this PR set:
@@ -252,10 +258,9 @@ Additional context for related items deferred from this PR set:
   cold full-slnx re-measurement.
 - `EnforceCodeStyleInBuild=false` as default: M12 = 73.09 s, *slower* than
   baseline due to property-key invalidation in a warm run. Offered behind
-  the opt-in `AspireFastInnerLoop` flag (PR P5) instead.
+  the opt-in `AspireFastInnerLoop` flag instead.
 - `UsePublicApiAnalyzers`: 0 `PublicAPI.{Shipped,Unshipped}.txt` files exist
   in the repo; analyzer loads on ~100 src projects for zero baseline content.
-  Lands via PR P3.
 
 ## results.csv format
 
