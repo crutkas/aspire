@@ -31,7 +31,9 @@
   Logic for generating and comparing the ConfigurationSchema.json file
   -->
   <PropertyGroup>
-    <TargetsTriggeredByCompilation Condition="'$(DesignTimeBuild)' != 'true'">$(TargetsTriggeredByCompilation);GenerateConfigurationSchema</TargetsTriggeredByCompilation>
+    <!-- Skip ConfigurationSchema generation/comparison in fast-inner-loop mode: with analyzers and
+         source generators disabled the produced assembly differs and the parity check fails. -->
+    <TargetsTriggeredByCompilation Condition="'$(DesignTimeBuild)' != 'true' AND '$(AspireFastInnerLoop)' != 'true'">$(TargetsTriggeredByCompilation);GenerateConfigurationSchema</TargetsTriggeredByCompilation>
 
     <ConfigurationSchemaGeneratorProjectPath>$(RepoRoot)src\Tools\ConfigurationSchemaGenerator\ConfigurationSchemaGenerator.csproj</ConfigurationSchemaGeneratorProjectPath>
     <ConfigurationSchemaGeneratorRspPath>$(IntermediateOutputPath)$(AsemblyName).configschema.rsp</ConfigurationSchemaGeneratorRspPath>

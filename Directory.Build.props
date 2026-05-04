@@ -43,6 +43,41 @@
     <NoWarn>$(NoWarn);xUnit1051;NU1510;ASPIREATS001</NoWarn>
   </PropertyGroup>
 
+  <!--
+    Opt-in fast inner-loop switch. Set $(AspireFastInnerLoop)=true (e.g. via
+    `dotnet build /p:AspireFastInnerLoop=true` or `set AspireFastInnerLoop=true`)
+    to disable analyzers, code-style enforcement, and XML doc generation for
+    faster local builds. Default behavior (off) is unchanged. CI/release builds
+    must NOT set this flag - see docs/tips-and-known-issues.md.
+  -->
+  <PropertyGroup Condition=" '$(AspireFastInnerLoop)' == 'true' ">
+    <RunAnalyzers>false</RunAnalyzers>
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- CS1591: Missing XML comment for publicly visible type or member. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <Target Name="_AspireFastInnerLoopWarning"
+          BeforeTargets="BeforeBuild"
+          Condition=" '$(AspireFastInnerLoop)' == 'true' and '$(_AspireFastInnerLoopWarned)' != 'true' ">
+    <Message Importance="high" Text="AspireFastInnerLoop is ON: analyzers, EnforceCodeStyleInBuild, and GenerateDocumentationFile are disabled. Do not use for CI or release builds." />
+    <PropertyGroup>
+      <_AspireFastInnerLoopWarned>true</_AspireFastInnerLoopWarned>
+    </PropertyGroup>
+  </Target>
+
+  <!--
+    Hard CI guard: fail the build if AspireFastInnerLoop is set in a CI context.
+    Prevents shipping bits without analyzers, code-style enforcement, or XML docs.
+  -->
+  <Target Name="_AspireFastInnerLoopCIGuard"
+          BeforeTargets="BeforeBuild"
+          Condition=" '$(AspireFastInnerLoop)' == 'true' and '$(ContinuousIntegrationBuild)' == 'true' ">
+    <Error Code="ASPIRE001" Text="AspireFastInnerLoop must not be set in CI builds (ContinuousIntegrationBuild=true). It disables analyzers, code-style enforcement, and XML doc generation, which CI must enforce. Unset the env var (PowerShell: Remove-Item Env:AspireFastInnerLoop; cmd: set AspireFastInnerLoop=; bash: unset AspireFastInnerLoop) or remove /p:AspireFastInnerLoop=true." />
+  </Target>
+
   <!-- OS/Architecture properties for local development resources -->
   <PropertyGroup>
     <BuildOs Condition="$([MSBuild]::IsOsPlatform('Linux'))">linux</BuildOs>
