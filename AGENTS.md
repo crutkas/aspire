@@ -91,6 +91,7 @@ When reviewing pull requests:
 
 #### Build Commands
 - **Full Build**: `./build.sh` (Linux/macOS) or `./build.cmd` (Windows) - defaults to restore + build (~3-5 minutes)
+- **Inner-loop iteration (Hosting/AppHost/Cli/Dashboard)**: `dotnet build Aspire-FastDev.slnf` — a 9-project src-only solution filter. Cold restore+build measured at ~40 s on Windows vs ~4 min for the full `Aspire.slnx` (6.2× speedup). Use this when you only need the core inner-loop projects; switch back to `Aspire.slnx` or `./build.cmd` for a full build.
 - **Build Only**: `./build.sh --build` (assumes restore already done)
 - **Skip Native Build**: Add `/p:SkipNativeBuild=true` to avoid slow native AOT compilation (~1-2 minutes saved)
 - **Clean Build**: `./build.sh --rebuild`

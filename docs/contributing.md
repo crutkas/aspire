@@ -9,6 +9,17 @@ See [machine-requirements.md](/docs/machine-requirements.md).
 
 `.\build.sh` (macOS and Linux) or `.\build.cmd` (Windows)
 
+### Fast inner-loop builds
+
+If you are iterating on Hosting, AppHost, Cli, or Dashboard, you can use the `Aspire-FastDev.slnf` solution filter to build only the 9 core src projects. This was measured at ~40 s cold on Windows vs ~4 min for the full `Aspire.slnx` (a 6.2× speedup):
+
+```shell
+dotnet restore Aspire-FastDev.slnf
+dotnet build Aspire-FastDev.slnf
+```
+
+Use the full `Aspire.slnx` (or `.\build.cmd`) for everything else — the filter intentionally omits tests, playgrounds, integrations, and packaging projects.
+
 ## Using the `dotnet` CLI
 
 In building and testing, never use the global `dotnet` copy. Use `./dotnet.sh` on Unix, `.\dotnet.cmd` on Windows.
