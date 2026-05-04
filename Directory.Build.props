@@ -25,7 +25,9 @@
     <StrongNameKeyId>Open</StrongNameKeyId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UsePublicApiAnalyzers>true</UsePublicApiAnalyzers>
+    <!-- Disabled: no PublicAPI.{Shipped,Unshipped}.txt baselines exist anywhere in the repo,
+         so the analyzer enforces nothing. Flip to true (or set per-project) once baselines are added. -->
+    <UsePublicApiAnalyzers Condition="'$(UsePublicApiAnalyzers)' == ''">false</UsePublicApiAnalyzers>
     <!-- Redirect test logs into a subfolder -->
     <TestResultsLogDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsLogDir)', 'TestLogs'))</TestResultsLogDir>
     <!-- We don't want to use the workload for AppHost projects in this repo -->
